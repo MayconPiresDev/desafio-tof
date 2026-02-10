@@ -2,9 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { DataSource } from 'typeorm';
 
 describe('API Shortener (e2e)', () => {
   let app: INestApplication;
+  let dataSource: DataSource;
   let token: string;
 
   beforeAll(async () => {
@@ -13,8 +15,17 @@ describe('API Shortener (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe());
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
+
+    dataSource = moduleFixture.get<DataSource>(DataSource);
+
     await app.init();
+
+    await dataSource.query(
+      'TRUNCATE TABLE "urls", "users" RESTART IDENTITY CASCADE',
+    );
   });
 
   it('/users (POST) - Registro de Usuário', () => {
@@ -53,6 +64,7 @@ describe('API Shortener (e2e)', () => {
   });
 
   afterAll(async () => {
+    await dataSource.destroy();
     await app.close();
   });
 });
