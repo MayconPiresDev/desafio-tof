@@ -64,7 +64,11 @@ describe('API Shortener (e2e)', () => {
   });
 
   afterAll(async () => {
-    await dataSource.destroy();
-    await app.close();
+    if (dataSource) {
+      await dataSource.destroy();
+    }
+    if (app) {
+      await app.close();
+    }
   });
 });
