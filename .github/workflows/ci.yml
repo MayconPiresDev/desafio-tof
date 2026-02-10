@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # Criamos um banco temporário para os testes E2E passarem no GitHub
       postgres:
         image: postgres:15
         env:
@@ -34,7 +33,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: './package-lock.json'
+          cache-dependency-path: 'shortener-api/package-lock.json'
 
       - name: Install dependencies
         run: npm ci
