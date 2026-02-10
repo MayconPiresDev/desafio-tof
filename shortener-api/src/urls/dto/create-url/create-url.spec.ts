@@ -1,7 +1,7 @@
-import { CreateUrl } from './create-url';
+import { CreateUrlDto } from './create-url';
 
-describe('CreateUrl', () => {
+describe('CreateUrlDto', () => {
   it('should be defined', () => {
-    expect(new CreateUrl()).toBeDefined();
+    expect(new CreateUrlDto()).toBeDefined();
   });
 });

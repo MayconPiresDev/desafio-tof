@@ -1,25 +1,21 @@
-import {
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUrl,
-  Matches,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsNotEmpty, IsUrl, IsOptional, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUrlDto {
-  @IsNotEmpty({ message: 'A URL original é obrigatória.' })
-  @IsUrl({}, { message: 'A URL fornecida não é válida.' })
+  @ApiProperty({ example: 'https://teddy360.com.br/material/marco-legal' })
+  @IsNotEmpty()
+  @IsUrl()
   originalUrl: string;
 
+  @ApiPropertyOptional({
+    example: 'meu-link-personalizado',
+    description:
+      '3-30 caracteres, letras minúsculas, números, hífens ou underscores.',
+  })
   @IsOptional()
-  @IsString()
-  @MinLength(3, { message: 'O alias deve ter no mínimo 3 caracteres.' })
-  @MaxLength(30, { message: 'O alias deve ter no máximo 30 caracteres.' })
-  @Matches(/^[a-z0-9_-]+$/, {
+  @Matches(/^[a-z0-9_-]{3,30}$/, {
     message:
-      'O alias deve conter apenas letras minúsculas, números, hífens e sublinhados.',
+      'Alias deve ter entre 3 e 30 caracteres e conter apenas a-z, 0-9, - ou _',
   })
   customAlias?: string;
 }

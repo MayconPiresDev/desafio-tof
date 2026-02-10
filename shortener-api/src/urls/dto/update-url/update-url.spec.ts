@@ -1,7 +1,7 @@
-import { UpdateUrl } from './update-url';
+import { UpdateUrlDto } from './update-url';
 
-describe('UpdateUrl', () => {
+describe('UpdateUrlDto', () => {
   it('should be defined', () => {
-    expect(new UpdateUrl()).toBeDefined();
+    expect(new UpdateUrlDto()).toBeDefined();
   });
 });

@@ -1,27 +1,99 @@
 import {
-  ConflictException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
-  ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
 import { Url } from './entities/url.entity';
 import { CreateUrlDto } from './dto/create-url/create-url';
 import { UpdateUrlDto } from './dto/update-url/update-url';
-import { SlugGeneratorService } from './services/slug-generator/slug-generator.service';
+import { ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class UrlsService {
   constructor(
     @InjectRepository(Url)
-    private readonly urlRepository: Repository<Url>,
-    private readonly slugGenerator: SlugGeneratorService,
-    private readonly configService: ConfigService,
+    private urlRepository: Repository<Url>,
+    private configService: ConfigService,
   ) {}
+
+  async create(createUrlDto: CreateUrlDto, user: User | null) {
+    const { originalUrl, customAlias } = createUrlDto;
+
+    if (customAlias) {
+      const exists = await this.urlRepository.findOne({
+        where: { shortCode: customAlias },
+      });
+      if (exists) throw new ConflictException('Alias já está em uso.');
+
+      return this.saveUrl(originalUrl, customAlias, user);
+    }
+
+    // Lógica de colisão para slug automático
+    let shortCode: string;
+    let isUnique = false;
+    while (!isUnique) {
+      shortCode = this.generateShortCode();
+      const exists = await this.urlRepository.findOne({ where: { shortCode } });
+      if (!exists) isUnique = true;
+    }
+
+    return this.saveUrl(originalUrl, shortCode!, user);
+  }
+
+  private generateShortCode(): string {
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
+  private async saveUrl(
+    originalUrl: string,
+    shortCode: string,
+    user: User | null,
+  ) {
+    const baseUrl: string =
+      this.configService.get('BASE_URL') || 'http://localhost:3000';
+    const newUrl = this.urlRepository.create({
+      originalUrl,
+      shortCode,
+      userId: user?.id,
+    });
+
+    const saved = await this.urlRepository.save(newUrl);
+    return {
+      ...saved,
+      shortLink: `${baseUrl}/${shortCode}`,
+    };
+  }
+
+  async findByCode(code: string): Promise<Url> {
+    const url = await this.urlRepository.findOne({
+      where: { shortCode: code },
+    });
+
+    if (!url) {
+      throw new NotFoundException('URL não encontrada.');
+    }
+
+    url.clicks++;
+    await this.urlRepository.save(url);
+
+    return url;
+  }
+
+  async findAllByUserId(userId: number): Promise<Url[]> {
+    return this.urlRepository.find({
+      where: { user: { id: userId } },
+      order: { createdAt: 'DESC' },
+    });
+  }
 
   async update(id: number, updateUrlDto: UpdateUrlDto, userId: number) {
     const url = await this.urlRepository.findOne({
@@ -29,9 +101,7 @@ export class UrlsService {
     });
 
     if (!url) {
-      throw new NotFoundException(
-        'URL não encontrada ou você não tem permissão para editá-la.',
-      );
+      throw new NotFoundException('URL não encontrada ou sem permissão.');
     }
 
     this.urlRepository.merge(url, updateUrlDto);
@@ -44,88 +114,9 @@ export class UrlsService {
     });
 
     if (!url) {
-      throw new NotFoundException(
-        'URL não encontrada ou você não tem permissão para excluí-la.',
-      );
+      throw new NotFoundException('URL não encontrada ou sem permissão.');
     }
 
     return this.urlRepository.softDelete(id);
-  }
-
-  async shorten(createUrlDto: CreateUrlDto, user?: User): Promise<any> {
-    const { originalUrl, customAlias } = createUrlDto;
-    let shortCode = customAlias;
-
-    // 1. Validação de Alias
-    if (shortCode) {
-      const exists = await this.urlRepository.findOne({
-        where: { shortCode },
-        withDeleted: true,
-      });
-      if (exists) {
-        throw new ConflictException('Este alias já está em uso.');
-      }
-    } else {
-      shortCode = await this.generateUniqueCode();
-    }
-
-    // 2. Criação
-    const newUrl = this.urlRepository.create({
-      originalUrl,
-      shortCode,
-      user,
-    });
-
-    try {
-      await this.urlRepository.save(newUrl);
-    } catch (error) {
-      throw new InternalServerErrorException('Erro ao salvar a URL.');
-    }
-
-    // 3. Retorno
-    const baseUrl =
-      this.configService.get<string>('BASE_URL') || 'http://localhost:3000';
-    const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-
-    return {
-      originalUrl: newUrl.originalUrl,
-      shortUrl: `${cleanBaseUrl}/${newUrl.shortCode}`,
-      code: newUrl.shortCode,
-    };
-  }
-
-  async findAllByUserId(userId: number): Promise<Url[]> {
-    return this.urlRepository.find({
-      where: { user: { id: userId } },
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  async redirect(code: string): Promise<string> {
-    const url = await this.urlRepository.findOne({
-      where: { shortCode: code },
-    });
-
-    if (!url) {
-      throw new NotFoundException('URL não encontrada.');
-    }
-
-    url.clicks++;
-    await this.urlRepository.save(url);
-
-    return url.originalUrl;
-  }
-
-  private async generateUniqueCode(): Promise<string> {
-    let code = '';
-    let exists = true;
-    while (exists) {
-      code = this.slugGenerator.generate(6);
-      const url = await this.urlRepository.findOne({
-        where: { shortCode: code },
-      });
-      exists = !!url;
-    }
-    return code;
   }
 }

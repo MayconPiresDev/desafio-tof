@@ -1,7 +1,7 @@
-import { CreateUser } from './create-user';
+import { CreateUserDto } from './create-user';
 
-describe('CreateUser', () => {
+describe('CreateUserDto', () => {
   it('should be defined', () => {
-    expect(new CreateUser()).toBeDefined();
+    expect(new CreateUserDto()).toBeDefined(); // Use o nome exato da classe
   });
 });

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shortener-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: shortener-api
+  template:
+    metadata:
+      labels:
+        app: shortener-api
+    spec:
+      containers:
+        - name: api
+          image: seu-usuario/shortener-api:v1.0.0
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: url
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shortener-service
+spec:
+  selector:
+    app: shortener-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  type: LoadBalancer
