@@ -9,11 +9,17 @@ import {
 import { Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 
+interface ExceptionResponse {
+  message?: string | string[];
+  statusCode?: number;
+  error?: string;
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger('ExceptionFilter');
 
-  catch(exception: any, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -21,7 +27,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      message = (exception.getResponse() as any).message || exception.message;
+      const exceptionResponse = exception.getResponse() as ExceptionResponse;
+      message = Array.isArray(exceptionResponse.message)
+        ? exceptionResponse.message.join(', ')
+        : exceptionResponse.message || exception.message;
     } else if (exception instanceof QueryFailedError) {
       // Trata erros de banco como duplicidade de Unique Key
       if (exception.message.includes('unique constraint')) {
@@ -31,7 +40,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     this.logger.error(
-      `Status: ${status} | Error: ${message} | Stack: ${exception.stack}`,
+      `Status: ${status} | Error: ${message} | Stack: ${exception instanceof Error ? exception.stack : 'No stack available'}`,
     );
 
     response.status(status).json({

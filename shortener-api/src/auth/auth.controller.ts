@@ -12,13 +12,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { Login } from './dto/login/login';
 
-interface RequestWithUser extends Request {
-  user: {
-    id: number;
-    email: string;
-  };
-}
-
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
@@ -37,7 +30,7 @@ export class AuthController {
     description: 'Credenciais inválidas (E-mail ou senha incorretos).',
   })
   @ApiBody({ type: Login })
-  async login(@Body() loginDto: Login, @Request() req) {
+  login(@Body() loginDto: Login, @Request() req) {
     return this.authService.login(req.user);
   }
 }
